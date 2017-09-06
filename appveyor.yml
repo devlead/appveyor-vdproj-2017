@@ -1,0 +1,62 @@
+version: 1.0.{build}
+os: Visual Studio 2017
+
+
+#install script (VDPROJ FIX)
+install:
+- ps: >-
+    choco install -y vswhere
+
+    $installerUrl = 'https://visualstudiogallery.msdn.microsoft.com/fd136a01-a0c8-475f-94dd-240136f86746/file/247375/5/InstallerProjects.vsix'
+
+    $vsixPath = "$($env:USERPROFILE)\InstallerProjects.vsix"
+
+    Invoke-WebRequest $installerUrl -OutFile $vsixPath
+
+    $vsixInstallerPath = "$(&vswhere  -property installationPath)\Common7\IDE\VSIXInstaller.exe"
+
+    Start-Process -FilePath $vsixInstallerPath -Wait -ArgumentList @("/q", "/a", """$vsixPath""")
+
+    [string[]] $instanceIds = [xml]( &vswhere.exe -all -property instanceId -format xml)| % instances | % instance| % instanceId
+
+    $instanceIds | ForEach-Object {
+
+        $path = "HKCU:\Software\Microsoft\VisualStudio\15.0_$($_)_Config\MSBuild"
+
+        [int] $EnableOutOfProcBuild = -1
+
+        if (-not (Test-Path $path))
+        {
+          New-Item -Path $path -Force
+        }
+
+        if ((Get-ItemProperty -Path $path -Name EnableOutOfProcBuild -ErrorAction SilentlyContinue -WarningAction SilentlyContinue| % EnableOutOfProcBuild) -eq 0 )
+        {
+           $EnableOutOfProcBuild = 0
+
+        }
+
+        if ($EnableOutOfProcBuild -ne 0)
+        {
+            Set-ItemProperty -Path $path -Name EnableOutOfProcBuild -Value 0
+        }
+    }
+
+# Build script
+build_script:
+- ps: >-
+    $devenvPath = "$(&vswhere  -property installationPath)\Common7\IDE\devenv.com"
+
+    &$devenvPath .\LegacyWindowsFormsApp\LegacyWindowsFormsApp.sln /build Release /project BlastFromThePastSetup
+
+    Get-ChildItem *.msi -Recurse | ForEach-Object {
+
+        Get-ChildItem $_.Directory | ForEach-Object {
+
+            Push-AppveyorArtifact $_.FullName -FileName $_.Name
+
+        }
+
+    }
+# Tests
+test: off
