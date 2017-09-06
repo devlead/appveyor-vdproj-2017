@@ -4,4 +4,4 @@
 
 Minimal example of building Microsoft Visual Studio 2017 Installer Projects on AppVeyor
 
-Referes to issue appveyor/ci#1773
+Referes to issue [appveyor/ci#1773](https://github.com/appveyor/ci/issues/1773).
